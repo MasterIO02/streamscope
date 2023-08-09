@@ -1,5 +1,5 @@
 # streamscope
-streamscope allows you to record Twitch streams in real time for archival purposes.
+streamscope automates the recording of Twitch streams in real-time for archival purposes.
 CLI-only, rather easy to set-up and use.
 
 ![image](https://github.com/MasterIO02/streamscope/assets/40836390/42b0d33c-b2ab-41db-b76d-b56ebdafde8f)
@@ -11,13 +11,13 @@ CLI-only, rather easy to set-up and use.
 - Adding and removing streamers to monitor can be done in real-time
 
 ## Usage
-streamscope is a standalone application that should run on about any Linux machine, however it requires 2 third-party applications to work correctly:
+streamscope is a standalone application that should run on any recent Linux OS, however it requires 2 third-party applications to work correctly:
 - [streamlink](https://github.com/streamlink/streamlink): used to record the live streams
 - [ffmpeg](https://ffmpeg.org): used to post-process recordings
 
 Make sure to have them installed and available either in the same directory as streamscope or in the PATH. 
 
-streamscope cannot run on Windows as it depends on Linux built-in commands (the "kill" command).
+streamscope cannot run on Windows as it depends on built-in Linux commands.
 
 1. Run streamscope once to have it generate a config.json file
 2. Fill or edit settings in that fresh config.json file
