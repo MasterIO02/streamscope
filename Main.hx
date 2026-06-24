@@ -197,6 +197,9 @@ class Main {
 
 				// log current status for watched streamers
 				Sys.println('\n--- ${Date.now().toString()} ---');
+				if (status.length == 0) {
+					Sys.println('Nobody to watch for!');
+				}
 				for (streamer in status) {
 					if (streamer.online) {
 						var streamingSince = '${streamer.started_at.split("T")[0]} ${streamer.started_at.split("T")[1].replace("Z", "")}';
