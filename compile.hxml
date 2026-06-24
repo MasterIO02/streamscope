@@ -1,6 +1,6 @@
 --main Main
 --library hxWebSockets
 -D HAXE_OUTPUT_FILE=streamscope
--D version=1.0.0
+-D version=1.1.0
 --dce full
 --cpp appbuild
