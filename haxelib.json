@@ -1,0 +1,9 @@
+{
+	"name": "streamscope",
+	"version": "1.0.0",
+	"description": "Real-time Twitch stream recorder with chat logging",
+	"license": "BSD-3-Clause",
+	"dependencies": {
+		"hxWebSockets": "1.4.0"
+	}
+}

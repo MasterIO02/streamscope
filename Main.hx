@@ -11,7 +11,6 @@ import src.Config;
 import src.Util;
 import src.Types;
 
-using tink.CoreApi;
 using StringTools;
 using Std;
 
@@ -69,24 +68,22 @@ class Main {
 		// check if the list exists
 		if (!FileSystem.exists(listPath)) return Sys.println("The supplied list of streamers to record does not exist.");
 
+		// check that required external tools are available
+		if (!isCommandAvailable("streamlink", "--version")) return Sys.println("streamlink is not installed or not in PATH.");
+		if (!isCommandAvailable("ffmpeg", "-version")) return Sys.println("ffmpeg is not installed or not in PATH.");
+
 		// check and process leftover streams in another thread
 		Thread.create(checkLeftovers);
 
 		refreshStreamers(listPath);
 
 		Sys.println("Getting Twitch client credentials...");
-		var credentials;
-		getAccessToken().handle(e -> {
-			if (config.debug) trace('[DEBUG] Twitch response: $e');
-			credentials = Json.parse(e).access_token;
-			if (credentials == "ERROR") {
-				Sys.println('Error when trying to get the Twitch client credentials! ${Json.parse(e).error}');
-				// TODO: we're currently exiting but we may want to try again instead
-				Sys.exit(1);
-			} else if (config.debug == true) {
-				trace('[DEBUG] The Twitch access token is $credentials');
-			}
-		});
+		var credentials = getAccessToken();
+		if (credentials == "ERROR") {
+			Sys.println("Failed to get Twitch client credentials after all attempts, exiting.");
+			Sys.exit(1);
+		}
+		if (config.debug) trace('[DEBUG] The Twitch access token is $credentials');
 		Sys.println("Got Twitch credentials!");
 
 		// main loop
@@ -94,8 +91,7 @@ class Main {
 		timer.run = () -> {
 			refreshStreamers(listPath);
 
-			var twitchResponse;
-			checkStreamersOnline(currentlyWatchedStreamers, credentials).handle(e -> twitchResponse = e);
+			var twitchResponse = checkStreamersOnline(currentlyWatchedStreamers, credentials);
 
 			// twitch response array values:
 			// {status: "OK", ...}: List of online streamers, empty if nobody is online
@@ -104,16 +100,16 @@ class Main {
 
 			if (twitchResponse.contains({status: "ERR_REGEN_CREDS"})) {
 				Sys.println("Got error 401, need to regen the credentials.");
-				getAccessToken().handle(e -> {
-					credentials = Json.parse(e).access_token;
-					if (config.debug) {
-						trace('[DEBUG] The regenerated Twitch access token is $credentials');
-					}
-				});
-				Sys.println("Regenerated Twitch credentials!");
+				var newCredentials = getAccessToken();
+				if (newCredentials != "ERROR") {
+					credentials = newCredentials;
+					if (config.debug) trace('[DEBUG] The regenerated Twitch access token is $credentials');
+					Sys.println("Regenerated Twitch credentials!");
+				} else {
+					Sys.println("Failed to regenerate Twitch credentials after all attempts.");
+				}
 			} else if (twitchResponse.contains({status: "ERR_UNKNOWN"})) {
 				Sys.println('Got an unknown error when fetching online streamers, retrying in ${config.query_time} seconds.');
-				// we don't do anything more
 			} else {
 				// onlineStreamersNames is used to set online/offline status of the streamers in the loop
 				var onlineStreamersNames:Array<String> = [];
@@ -164,12 +160,11 @@ class Main {
 					}
 				}
 
-				// we do another for loop because we can't check while still pushing online streamers names
+				// mark streamers that went offline
 				for (streamerStatus in status) {
 					if (streamerStatus.online == true) {
 						if (!onlineStreamersNames.contains(streamerStatus.streamer_username.toLowerCase())) {
 							streamerStatus.online = false;
-							break;
 						}
 					}
 				}
@@ -190,76 +185,85 @@ class Main {
 		}
 	}
 
-	static public function getAccessToken() {
-		return Future.irreversible(__return -> {
+	static public function getAccessToken():String {
+		var maxRetries = 5;
+		for (attempt in 0...maxRetries) {
+			var result:String = null;
 			var twitch = new Http('https://id.twitch.tv/oauth2/token?client_id=${config.twitch_id}&client_secret=${config.twitch_secret}&grant_type=client_credentials');
-			twitch.onData = s -> __return(s);
-			twitch.onError = e -> __return('{"error": $e, "access_token": "ERROR"}');
+			twitch.onData = s -> result = Json.parse(s).access_token;
+			twitch.onError = e -> {
+				Sys.println('Error when trying to get the Twitch client credentials: $e');
+				result = "ERROR";
+			};
 			twitch.request(true);
-		});
+			if (result != "ERROR") return result;
+			if (attempt < maxRetries - 1) {
+				Sys.println('Failed to get Twitch client credentials, retrying in 10 seconds... (${attempt + 1}/$maxRetries)');
+				Sys.sleep(10);
+			}
+		}
+		return "ERROR";
 	}
 
-	static public function checkStreamersOnline(streamers:Array<String>, credentials:String) {
-		return Future.irreversible(__return -> {
-			var streamersQuery = "";
-			for (streamer in streamers) {
-				if (streamersQuery == "") {
-					streamersQuery += '?user_login=$streamer';
-				} else {
-					streamersQuery += '&user_login=$streamer';
-				}
+	static public function checkStreamersOnline(streamers:Array<String>, credentials:String):Array<OnlineStreamer> {
+		var streamersQuery = "";
+		for (streamer in streamers) {
+			if (streamersQuery == "") {
+				streamersQuery += '?user_login=$streamer';
+			} else {
+				streamersQuery += '&user_login=$streamer';
 			}
+		}
 
-			var twitch = new Http('https://api.twitch.tv/helix/streams$streamersQuery');
-			twitch.addHeader("Client-ID", config.twitch_id);
-			twitch.addHeader("Authorization", 'Bearer $credentials');
-			twitch.onData = data -> {
-				// here twitch sends us an array of objects in the data property of the online streamers.
-				// offline streamers aren't present in there.
+		var result:Array<OnlineStreamer> = [];
+		var twitch = new Http('https://api.twitch.tv/helix/streams$streamersQuery');
+		twitch.addHeader("Client-ID", config.twitch_id);
+		twitch.addHeader("Authorization", 'Bearer $credentials');
+		twitch.onData = data -> {
+			// here twitch sends us an array of objects in the data property of the online streamers.
+			// offline streamers aren't present in there.
 
-				var streamersInfo:Array<{
-					id:String,
-					user_id:String,
-					user_login:String,
-					user_name:String,
-					game_id:String,
-					game_name:String,
-					title:String,
-					started_at:String,
-					language:String,
-					tag_ids:String,
-					is_mature:String
-				}> = Json.parse(data).data;
+			var streamersInfo:Array<{
+				id:String,
+				user_id:String,
+				user_login:String,
+				user_name:String,
+				game_id:String,
+				game_name:String,
+				title:String,
+				started_at:String,
+				language:String,
+				tag_ids:String,
+				is_mature:String
+			}> = Json.parse(data).data;
 
-				var onlineStreamers:Array<OnlineStreamer> = [];
-				for (streamerInfo in streamersInfo) {
-					onlineStreamers.push({
-						status: "OK",
-						stream_id: streamerInfo.id,
-						user_id: streamerInfo.user_id,
-						user_login: streamerInfo.user_login,
-						user_name: streamerInfo.user_name,
-						game_id: streamerInfo.game_id,
-						game_name: streamerInfo.game_name,
-						title: streamerInfo.title,
-						started_at: streamerInfo.started_at,
-						language: streamerInfo.language,
-						tag_ids: streamerInfo.tag_ids,
-						is_mature: streamerInfo.is_mature
-					});
-				}
-				__return(onlineStreamers);
+			for (streamerInfo in streamersInfo) {
+				result.push({
+					status: "OK",
+					stream_id: streamerInfo.id,
+					user_id: streamerInfo.user_id,
+					user_login: streamerInfo.user_login,
+					user_name: streamerInfo.user_name,
+					game_id: streamerInfo.game_id,
+					game_name: streamerInfo.game_name,
+					title: streamerInfo.title,
+					started_at: streamerInfo.started_at,
+					language: streamerInfo.language,
+					tag_ids: streamerInfo.tag_ids,
+					is_mature: streamerInfo.is_mature
+				});
 			}
-			twitch.onError = data -> {
-				if (data == "Http Error #401") {
-					__return([{status: "ERR_REGEN_CREDS"}]);
-				} else {
-					Sys.println('Unknown error when trying to fetch online streamers: $data');
-					__return([{status: "ERR_UNKNOWN"}]);
-				}
+		}
+		twitch.onError = data -> {
+			if (data == "Http Error #401") {
+				result = [{status: "ERR_REGEN_CREDS"}];
+			} else {
+				Sys.println('Unknown error when trying to fetch online streamers: $data');
+				result = [{status: "ERR_UNKNOWN"}];
 			}
-			twitch.request();
-		});
+		}
+		twitch.request();
+		return result;
 	}
 
 	static public function refreshStreamers(listPath) {
@@ -268,10 +272,8 @@ class Main {
 		var newWatchedStreamers:Array<String> = [];
 		var lines = File.getContent(listPath).split("\n");
 
-		// need to do a reverse iterator here, and since it's not built-in see https://code.haxe.org/category/data-structures/reverse-iterator.html
-		// cannot use a standard loop here because it sometimes lets comments go through
-		var total = lines.length;
-		var i = total;
+		// filter comments and empty lines (iterate in reverse to safely remove while iterating)
+		var i = lines.length - 1;
 		while (i >= 0) {
 			var line = lines[i];
 			if (line.startsWith("//") || line.trim() == "") lines.remove(line);
@@ -326,5 +328,12 @@ class Main {
 		}
 
 		currentlyWatchedStreamers = newWatchedStreamers;
+	}
+
+	static public function isCommandAvailable(command:String, versionFlag:String):Bool {
+		var process = new sys.io.Process(command, [versionFlag]);
+		var exitCode = process.exitCode(true);
+		process.close();
+		return exitCode == 0;
 	}
 }

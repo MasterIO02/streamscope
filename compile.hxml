@@ -1,5 +1,4 @@
 --main Main
---library tink_core
 --library hxWebSockets
 -D HAXE_OUTPUT_FILE=streamscope
 -D version=1.0.0

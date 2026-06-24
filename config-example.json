@@ -1,0 +1,28 @@
+{
+    "debug": false,
+    "twitch_id": "",
+    "twitch_secret": "",
+    "query_time": 15,
+    "quality": "best",
+    "video_container": "mkv",
+    "temp_path": "/tmp/streamscope/temp",
+    "processed_path": "/tmp/streamscope/processed",
+    "problematic_path": "/tmp/streamscope/problematic",
+    "download_chat": true,
+    "custom_chat": true,
+    "custom_chat_pattern": "{{date}} | ({{badges}}) {{display_name}}: {{content}}",
+    "chat_var_when_empty": {
+        "room_id": "",
+        "user_id": "",
+        "user_type": "",
+        "display_name": "",
+        "badge_info": "",
+        "badges": "",
+        "client_nonce": "",
+        "color": "",
+        "emotes": "",
+        "flags": "",
+        "id": "",
+        "content": ""
+    }
+}

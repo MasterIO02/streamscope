@@ -13,6 +13,8 @@ import haxe.Json;
 
 using StringTools;
 
+var streamlinkProcesses:Map<String, Process> = new Map();
+
 function runStreamlink(streamerInfo:StreamerStatus) {
 	Sys.println('\nStarting record of ${streamerInfo.streamer_username}');
 
@@ -81,6 +83,7 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String, path:St
 
 	final streamlinkCommand = 'streamlink --twitch-disable-hosting --twitch-disable-ads --twitch-disable-reruns twitch.tv/${streamerInfo.streamer_username} ${config.quality} -o "${config.temp_path}/$filename.${config.video_container}"';
 	final streamlink = new Process(streamlinkCommand);
+	streamlinkProcesses.set(streamerInfo.streamer_username, streamlink);
 
 	var streamlinkEndedCleanly = false;
 	while (streamlink.exitCode(false) == null) {
@@ -98,6 +101,9 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String, path:St
 		Sys.println('Looks like streamlink for ${streamerInfo.streamer_username} closed abruptly, processing the output video anyway');
 		killStreamlink(streamerInfo); // we will try to kill it to make sure there are no zombie processes
 	}
+
+	streamlinkProcesses.remove(streamerInfo.streamer_username);
+	streamlink.close();
 
 	if (config.download_chat == true) {
 		if (config.debug) trace("[DEBUG] Closing chat downloader, stream ended");
@@ -129,9 +135,17 @@ function updateStreamInfo(itemType:String, newItem:String, filename:String, path
 }
 
 function killStreamlink(streamerInfo:StreamerStatus) {
-	// when we run streamlink, it's actually ran in a process not managed by streamscope so we need to find it to kill it
-	// we only have the pid of the process that runs streamlink (generally "sh")
-	// it's an issue (feature?) with streamlink itself, not streamscope
+	// Try using the stored process handle first
+	var storedProcess = streamlinkProcesses.get(streamerInfo.streamer_username);
+	if (storedProcess != null) {
+		try {
+			storedProcess.kill();
+		} catch (e) {
+			if (config.debug) trace('[DEBUG] Failed to kill stored process: $e');
+		}
+	}
+
+	// also use pgrep as fallback, since streamlink spawns child processes that the Process handle doesn't directly manage
 	var pidList:Array<String> = [];
 	final pgrep = new Process('pgrep -f "twitch.tv/${streamerInfo.streamer_username}"');
 	while (pgrep.exitCode(false) == null) {
@@ -139,6 +153,7 @@ function killStreamlink(streamerInfo:StreamerStatus) {
 			pidList.push(pgrep.stdout.readLine());
 		} catch (e:haxe.io.Eof) {}
 	}
+	pgrep.close();
 	if (config.debug) trace("pidList for killing streamlink is " + pidList);
 
 	for (processId in pidList) {

@@ -1,6 +1,5 @@
 package src;
 
-import haxe.macro.Context;
 import sys.thread.Thread;
 import src.Config;
 import hx.ws.WebSocket;
@@ -12,42 +11,54 @@ import src.FileHandler.isChatOpened;
 import src.FileHandler.openChat;
 import src.FileHandler.writeToChat;
 import src.FileHandler.closeChat;
+import haxe.Timer;
 
 using StringTools;
 
 function runChatDownloader(channel:String, filename:String) {
 	Log.mask = Log.INFO; // for the websocket
-	var ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
-	ws.onopen = () -> {
-		// using the same PASS and NICK that chat-downloader (https://github.com/xenova/chat-downloader) uses, it seems the PASS doesn't matter but the NICK matters, justinfan67420 is the correct public username
-		ws.send('CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands');
-		ws.send('PASS SCHMOOPIIE');
-		ws.send('NICK justinfan67420');
-		ws.send('JOIN #$channel');
-		if (config.debug) trace("[DEBUG] Sent authentication messages to Twitch WS.");
-	}
-	ws.onmessage = (message:MessageType) -> {
-		switch (message) {
-			case BytesMessage(_):
-				return;
-			case StrMessage(content):
-				if (content.contains("PRIVMSG")) {
-					if (!isChatOpened(channel)) openChat(channel, filename);
-					processMessage(content, channel, filename);
-				} else if (content.contains("PING :")) {
-					if (config.debug) trace('[DEBUG] The Twitch WS sent "$content" for channel $channel');
-					var toSend = content.split(":")[1];
-					ws.send('PONG :$toSend');
-					if (config.debug) trace('[DEBUG] Responded "PONG :$toSend" to the Twitch WS for channel $channel.');
-				}
+	var stopRequested = false;
+
+	function connect() {
+		var ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+		ws.onopen = () -> {
+			// using the same PASS and NICK that chat-downloader (https://github.com/xenova/chat-downloader) uses, it seems the PASS doesn't matter but the NICK matters, justinfan67420 is the correct public username
+			ws.send('CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands');
+			ws.send('PASS SCHMOOPIIE');
+			ws.send('NICK justinfan67420');
+			ws.send('JOIN #$channel');
+			if (config.debug) trace("[DEBUG] Sent authentication messages to Twitch WS.");
+		}
+		ws.onmessage = (message:MessageType) -> {
+			switch (message) {
+				case BytesMessage(_):
+					return;
+				case StrMessage(content):
+					if (content.contains("PRIVMSG")) {
+						if (!isChatOpened(channel)) openChat(channel, filename);
+						processMessage(content, channel, filename);
+					} else if (content.contains("PING :")) {
+						if (config.debug) trace('[DEBUG] The Twitch WS sent "$content" for channel $channel');
+						var toSend = content.split(":")[1];
+						ws.send('PONG :$toSend');
+						if (config.debug) trace('[DEBUG] Responded "PONG :$toSend" to the Twitch WS for channel $channel.');
+					}
+			}
+		}
+		ws.onclose = () -> {
+			if (!stopRequested) {
+				trace('[WARNING] Chat WebSocket disconnected for $channel, reconnecting in 5 seconds...');
+				Timer.delay(connect, 5000);
+			}
 		}
 	}
 
+	connect();
+
 	if (Thread.readMessage(true) == "end") {
-		ws.close();
+		stopRequested = true;
 		if (config.debug) {
-			trace("[DEBUG] Closed Twitch chat WS.");
-			trace("[DEBUG] Stopping to respond to this twitch WS.");
+			trace("[DEBUG] Stopping chat downloader.");
 		}
 		closeChat(channel);
 	}
