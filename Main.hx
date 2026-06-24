@@ -39,16 +39,27 @@ class Main {
 		var buildDate = getBuildTime();
 		Sys.println('Starting streamscope v${version == null ? " dev" : version} built on $buildDate');
 
+		// check if no path for the list of streamers to watch is supplied
+		if (Sys.args()[0] == null) return Sys.println("No path selected for the list of streamers to record.");
+		var listPath = Sys.args()[0];
+
 		// generate config if it does not exist
 		if (!FileSystem.exists("./config.json")) {
 			var configToWrite = File.write("./config.json");
 			configToWrite.writeString(freshConfig);
 			configToWrite.close();
 			Sys.println("Generated a new configuration file (config.json), you need to check and tweak the values in it before using streamscope.");
+			if (FileSystem.exists(listPath)) Sys.exit(0); // don't exit yet if we need to create the list.txt file
+		}
+
+		// generate streamers list if it does not exist
+		if (!FileSystem.exists(listPath)) {
+			File.write(listPath);
+			Sys.println("Generated an empty text file (list.txt) where the streamer names you want to record should be entered (1 per line).");
 			Sys.exit(0);
 		}
 
-		// init config
+		// parse config
 		try {
 			config = Json.parse(File.getContent("./config.json"));
 		} catch (e) {
@@ -57,16 +68,23 @@ class Main {
 		}
 
 		// check config values
-		if (!FileSystem.exists(config.temp_path)) return Sys.println("The temp file path in the configuration file is invalid.");
-		if (!FileSystem.exists(config.processed_path)) return Sys.println("The processed file path in the configuration file is invalid.");
-		if (!FileSystem.exists(config.problematic_path)) return Sys.println("The problematic file path in the configuration file is invalid.");
-
-		// check if no path for the list of streamers to watch is supplied
-		if (Sys.args()[0] == null) return Sys.println("No path selected for the list of streamers to record.");
-		var listPath = Sys.args()[0];
-
-		// check if the list exists
-		if (!FileSystem.exists(listPath)) return Sys.println("The supplied list of streamers to record does not exist.");
+		for (path in [config.temp_path, config.processed_path, config.problematic_path]) {
+			if (!FileSystem.exists(path)) {
+				try {
+					FileSystem.createDirectory(path);
+					Sys.println('Created directory: $path');
+				} catch (e) {
+					return Sys.println('Failed to create directory: $path');
+				}
+			}
+		}
+		if (!Std.isOfType(config.twitch_id, String)
+			|| !Std.isOfType(config.twitch_secret, String)
+			|| config.twitch_id == ""
+			|| config.twitch_secret == "") {
+			Sys.println('Missing Twitch ID and/or secret in the config');
+			Sys.exit(1);
+		}
 
 		// check that required external tools are available
 		if (!isCommandAvailable("streamlink", "--version")) return Sys.println("streamlink is not installed or not in PATH.");

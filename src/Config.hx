@@ -48,6 +48,7 @@ var config:Config = {
 	}
 }
 
+// the default paths are made for running in docker. we exit on start so users running the app outside docker can change the config manually before rerunning
 var freshConfig = '{
 	"debug": false,
 	"twitch_id": "",
@@ -55,9 +56,9 @@ var freshConfig = '{
 	"query_time": 15,
 	"quality": "best",
 	"video_container": "mkv",
-	"temp_path": "",
-	"processed_path": "",
-	"problematic_path": "",
+	"temp_path": "/home/videos/temp",
+	"processed_path": "/home/videos/processed",
+	"problematic_path": "/home/videos/problematic",
 	"download_chat": true,
 	"custom_chat": true,
 	"custom_chat_pattern": "{{date}} | ({{badges}}) {{display_name}}: {{content}}",
