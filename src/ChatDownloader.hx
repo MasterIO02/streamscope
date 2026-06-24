@@ -27,9 +27,10 @@ function runChatDownloader(channel:String, filename:String) {
 			ws.send('PASS SCHMOOPIIE');
 			ws.send('NICK justinfan67420');
 			ws.send('JOIN #$channel');
-			if (config.debug) trace("[DEBUG] Sent authentication messages to Twitch WS.");
+			if (config.debug) trace('Connected to Twitch chat for $channel');
 		}
 		ws.onmessage = (message:MessageType) -> {
+			if (stopRequested) return;
 			switch (message) {
 				case BytesMessage(_):
 					return;
@@ -38,17 +39,19 @@ function runChatDownloader(channel:String, filename:String) {
 						if (!isChatOpened(channel)) openChat(channel, filename);
 						processMessage(content, channel, filename);
 					} else if (content.contains("PING :")) {
-						if (config.debug) trace('[DEBUG] The Twitch WS sent "$content" for channel $channel');
+						if (config.debug) trace('The Twitch WS sent "$content" for channel $channel');
 						var toSend = content.split(":")[1];
 						ws.send('PONG :$toSend');
-						if (config.debug) trace('[DEBUG] Responded "PONG :$toSend" to the Twitch WS for channel $channel.');
+						if (config.debug) trace('Responded "PONG :$toSend" to the Twitch WS for channel $channel.');
 					}
 			}
 		}
 		ws.onclose = () -> {
 			if (!stopRequested) {
-				trace('[WARNING] Chat WebSocket disconnected for $channel, reconnecting in 5 seconds...');
+				Sys.println('Chat Websocket disconnected for $channel, reconnecting in 5 seconds...');
 				Timer.delay(connect, 5000);
+			} else {
+				if (config.debug) trace('Disconnected from Twitch chat for $channel');
 			}
 		}
 	}
@@ -58,7 +61,7 @@ function runChatDownloader(channel:String, filename:String) {
 	if (Thread.readMessage(true) == "end") {
 		stopRequested = true;
 		if (config.debug) {
-			trace("[DEBUG] Stopping chat downloader.");
+			if (config.debug) trace("Stopping chat downloader.");
 		}
 		closeChat(channel);
 	}

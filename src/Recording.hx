@@ -86,8 +86,14 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String) {
 	}
 
 	if (!streamlinkEndedCleanly) {
-		Sys.println('Looks like streamlink for ${streamerInfo.streamer_username} closed abruptly, processing the output video anyway');
-		killStreamlink(streamerInfo); // we will try to kill it to make sure there are no zombie processes
+		// check if the process was externally killed (e.g. streamer removed from list)
+		if (streamlinkProcesses.exists(streamerInfo.streamer_username)) {
+			Sys.println('Streamlink for ${streamerInfo.streamer_username} was killed externally');
+			killStreamlink(streamerInfo);
+		} else {
+			Sys.println('Streamlink for ${streamerInfo.streamer_username} closed abruptly, processing the output video anyway');
+			killStreamlink(streamerInfo); // we will try to kill it to make sure there are no zombie processes
+		}
 	}
 
 	streamlinkProcesses.remove(streamerInfo.streamer_username);
@@ -115,7 +121,7 @@ function updateStreamInfo(itemType:String, newItem:String, filename:String, path
 	newStreamInfoFile.writeString(Json.stringify(currentStreamInfo), UTF8);
 	newStreamInfoFile.close();
 
-	if (config.debug) trace("[DEBUG] Updated stream info");
+	if (config.debug) trace("Updated stream info");
 }
 
 function killStreamlink(streamerInfo:StreamerStatus) {
@@ -125,7 +131,7 @@ function killStreamlink(streamerInfo:StreamerStatus) {
 		try {
 			storedProcess.kill();
 		} catch (e) {
-			if (config.debug) trace('[DEBUG] Failed to kill stored process: $e');
+			if (config.debug) trace('Failed to kill stored process: $e');
 		}
 	}
 

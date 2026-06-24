@@ -83,7 +83,7 @@ class Main {
 			Sys.println("Failed to get Twitch client credentials after all attempts, exiting.");
 			Sys.exit(1);
 		}
-		if (config.debug) trace('[DEBUG] The Twitch access token is $credentials');
+		if (config.debug) trace('The Twitch access token is $credentials');
 		Sys.println("Got Twitch credentials!");
 
 		// main loop
@@ -103,7 +103,7 @@ class Main {
 				var newCredentials = getAccessToken();
 				if (newCredentials != "ERROR") {
 					credentials = newCredentials;
-					if (config.debug) trace('[DEBUG] The regenerated Twitch access token is $credentials');
+					if (config.debug) trace('The regenerated Twitch access token is $credentials');
 					Sys.println("Regenerated Twitch credentials!");
 				} else {
 					Sys.println("Failed to regenerate Twitch credentials after all attempts.");
@@ -169,15 +169,10 @@ class Main {
 							if (streamerStatus.chat_thread != null) {
 								streamerStatus.chat_thread.sendMessage("end");
 								streamerStatus.chat_thread = null;
-								if (config.debug) trace('[DEBUG] Closing chat downloader for ${streamerStatus.streamer_username}, stream ended');
+								if (config.debug) trace('Closing chat downloader for ${streamerStatus.streamer_username}, stream ended');
 							}
 						}
 					}
-				}
-
-				// update was_online for next tick
-				for (streamerStatus in status) {
-					streamerStatus.was_online = streamerStatus.online;
 				}
 
 				// log current status for watched streamers
@@ -185,8 +180,16 @@ class Main {
 				for (streamer in status) {
 					if (streamer.online) {
 						var streamingSince = '${streamer.started_at.split("T")[0]} ${streamer.started_at.split("T")[1].replace("Z", "")}';
-						var log = '${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - Recording since ${streamer.recording_since}';
-						if (streamer.chat_only) log += ' (chat only)';
+						var log = '${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - ';
+						if (streamer.chat_only) {
+							log += 'Recording chat since ${streamer.recording_since}';
+						} else if (streamlinkProcesses.exists(streamer.streamer_username)) {
+							log += 'Recording since ${streamer.recording_since}';
+						} else if (!streamer.was_online) {
+							log += 'Not recording (starting up)';
+						} else {
+							log += 'Not recording (process may have been killed)';
+						}
 						Sys.println(log);
 					} else if (streamlinkProcesses.exists(streamer.streamer_username)) {
 						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET} - Waiting for streamlink to stop...');
@@ -196,6 +199,11 @@ class Main {
 				}
 				// newline
 				Sys.println('');
+
+				// update was_online for next tick
+				for (streamerStatus in status) {
+					streamerStatus.was_online = streamerStatus.online;
+				}
 			}
 		}
 	}
@@ -295,9 +303,6 @@ class Main {
 			i--;
 		}
 
-		// TODO: implement chat-only stream download
-		// TODO: detect changes of modifiers (eg "chat:streamer" becomes "streamer")
-
 		// find streamers to start watching
 		// every line here is a streamer name in the list, eventually with modifiers (eg chat:streamer) (NOT IMPLEMENTED)
 		for (line in lines) {
@@ -332,7 +337,12 @@ class Main {
 				for (watchedStreamer in status) {
 					if (watchedStreamer.streamer_input_username == streamer) {
 						if (watchedStreamer.online == true) {
-							Sys.println('Stopping to watch for $streamer. The recording will continue until the streamer finishes the stream.');
+							Sys.println('Stopping recording for $streamer.');
+							killStreamlink(watchedStreamer);
+							if (watchedStreamer.chat_thread != null) {
+								watchedStreamer.chat_thread.sendMessage("end");
+								watchedStreamer.chat_thread = null;
+							}
 						} else {
 							Sys.println('Stopping to watch for $streamer.');
 						}

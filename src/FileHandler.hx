@@ -7,7 +7,7 @@ var openedChats:Array<{channel:String, file:sys.io.FileOutput}> = [];
 
 function openChat(channel:String, filename:String) {
 	openedChats.push({channel: channel, file: File.append('${config.processed_path}/$channel/$filename - chat.txt', false)});
-	if (config.debug) trace('[DEBUG] Opened chat file of channel ${channel}');
+	if (config.debug) trace('Opened chat file of channel ${channel}');
 }
 
 function closeChat(channel:String) {
@@ -15,7 +15,7 @@ function closeChat(channel:String) {
 		if (openedChat.channel == channel) {
 			openedChat.file.close();
 			openedChats.remove(openedChat);
-			if (config.debug) trace('[DEBUG] Closed chat file of channel ${openedChat.channel}');
+			if (config.debug) trace('Closed chat file of channel ${openedChat.channel}');
 		}
 	}
 }
