@@ -160,7 +160,7 @@ class Main {
 					}
 				}
 
-				// mark streamers that went offline and handle chat cleanup
+				// mark streamers that went offline and handle cleanup
 				for (streamerStatus in status) {
 					if (streamerStatus.online == true) {
 						if (!onlineStreamersNames.contains(streamerStatus.streamer_username.toLowerCase())) {
@@ -169,8 +169,10 @@ class Main {
 							if (streamerStatus.chat_thread != null) {
 								streamerStatus.chat_thread.sendMessage("end");
 								streamerStatus.chat_thread = null;
-								if (config.debug) trace('Closing chat downloader for ${streamerStatus.streamer_username}, stream ended');
 							}
+
+							// streamlink thread will exit on its own after the process ends
+							streamerStatus.streamlink_thread = null;
 						}
 					}
 				}
@@ -183,18 +185,22 @@ class Main {
 						var log = '${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - ';
 						if (streamer.chat_only) {
 							log += 'Recording chat since ${streamer.recording_since}';
-						} else if (streamlinkProcesses.exists(streamer.streamer_username)) {
-							log += 'Recording since ${streamer.recording_since}';
-						} else if (!streamer.was_online) {
-							log += 'Not recording (starting up)';
 						} else {
-							log += 'Not recording (process may have been killed)';
+							if (streamlinkProcesses.exists(streamer.streamer_username)) {
+								log += 'Recording since ${streamer.recording_since}';
+							} else if (!streamer.was_online) {
+								log += 'Not recording (starting up)';
+							} else {
+								log += 'Not recording (process may have been killed)';
+							}
 						}
 						Sys.println(log);
-					} else if (streamlinkProcesses.exists(streamer.streamer_username)) {
-						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET} - Waiting for streamlink to stop...');
 					} else {
-						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET}');
+						if (streamlinkProcesses.exists(streamer.streamer_username)) {
+							Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET} - Waiting for streamlink to stop...');
+						} else {
+							Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET}');
+						}
 					}
 				}
 				// newline
@@ -343,6 +349,7 @@ class Main {
 								watchedStreamer.chat_thread.sendMessage("end");
 								watchedStreamer.chat_thread = null;
 							}
+							watchedStreamer.streamlink_thread = null;
 						} else {
 							Sys.println('Stopping to watch for $streamer.');
 						}

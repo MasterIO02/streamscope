@@ -61,7 +61,7 @@ function startRecording(streamerInfo:StreamerStatus) {
 
 	if (!streamerInfo.chat_only) {
 		// normal mode: also start the streamlink video recording process
-		Thread.create(streamlinkProcess.bind(streamerInfo, filename));
+		streamerInfo.streamlink_thread = Thread.create(streamlinkProcess.bind(streamerInfo, filename));
 	}
 
 	return filename;

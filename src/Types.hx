@@ -15,6 +15,7 @@ typedef StreamerStatus = {
 	was_online:Bool,
 	chat_only:Bool,
 	?chat_thread:Thread,
+	?streamlink_thread:Thread,
 	recording_since:String,
 	filename:String,
 	title:String,

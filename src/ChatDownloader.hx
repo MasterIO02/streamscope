@@ -18,9 +18,11 @@ using StringTools;
 function runChatDownloader(channel:String, filename:String) {
 	Log.mask = Log.INFO; // for the websocket
 	var stopRequested = false;
+	var currentWs:WebSocket = null;
 
 	function connect() {
 		var ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+		currentWs = ws;
 		ws.onopen = () -> {
 			// using the same PASS and NICK that chat-downloader (https://github.com/xenova/chat-downloader) uses, it seems the PASS doesn't matter but the NICK matters, justinfan67420 is the correct public username
 			ws.send('CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands');
@@ -60,8 +62,13 @@ function runChatDownloader(channel:String, filename:String) {
 
 	if (Thread.readMessage(true) == "end") {
 		stopRequested = true;
-		if (config.debug) {
-			if (config.debug) trace("Stopping chat downloader.");
+		if (config.debug) trace("Stopping chat downloader.");
+		if (currentWs != null) {
+			try {
+				currentWs.close();
+			} catch (e) {
+				if (config.debug) trace('Failed to close WebSocket: $e');
+			}
 		}
 		closeChat(channel);
 	}
