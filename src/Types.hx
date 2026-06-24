@@ -1,5 +1,7 @@
 package src;
 
+import sys.thread.Thread;
+
 // StreamerStatus is the object of a streamer in the main array of watched streamers
 // we use almost the same properties as in OnlineStreamer because we will pass StreamerStatus to the streamlink process that will also create a json containing this data
 typedef StreamerStatus = {
@@ -10,7 +12,9 @@ typedef StreamerStatus = {
 	// the display username of the streamer
 	streamer_display_name:String,
 	online:Bool,
+	was_online:Bool,
 	chat_only:Bool,
+	?chat_thread:Thread,
 	recording_since:String,
 	filename:String,
 	title:String,

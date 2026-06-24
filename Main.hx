@@ -6,7 +6,7 @@ import haxe.Timer;
 import haxe.Http;
 import haxe.Json;
 import src.ProcessRecording;
-import src.RunStreamlink;
+import src.Recording;
 import src.Config;
 import src.Util;
 import src.Types;
@@ -135,7 +135,7 @@ class Main {
 								streamerStatus.language = streamer.language;
 								streamerStatus.tag_ids = streamer.tag_ids;
 								streamerStatus.is_mature = streamer.is_mature;
-								var filename:String = runStreamlink(streamerStatus);
+								var filename:String = startRecording(streamerStatus);
 								// getting the filename here to be able to send it to updateStreamInfo() when the title of the stream changes for example
 								streamerStatus.filename = filename;
 								break;
@@ -160,13 +160,24 @@ class Main {
 					}
 				}
 
-				// mark streamers that went offline
+				// mark streamers that went offline and handle chat cleanup
 				for (streamerStatus in status) {
 					if (streamerStatus.online == true) {
 						if (!onlineStreamersNames.contains(streamerStatus.streamer_username.toLowerCase())) {
 							streamerStatus.online = false;
+
+							if (streamerStatus.chat_thread != null) {
+								streamerStatus.chat_thread.sendMessage("end");
+								streamerStatus.chat_thread = null;
+								if (config.debug) trace('[DEBUG] Closing chat downloader for ${streamerStatus.streamer_username}, stream ended');
+							}
 						}
 					}
+				}
+
+				// update was_online for next tick
+				for (streamerStatus in status) {
+					streamerStatus.was_online = streamerStatus.online;
 				}
 
 				// log current status for watched streamers
@@ -174,7 +185,9 @@ class Main {
 				for (streamer in status) {
 					if (streamer.online) {
 						var streamingSince = '${streamer.started_at.split("T")[0]} ${streamer.started_at.split("T")[1].replace("Z", "")}';
-						Sys.println('${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - Recording since ${streamer.recording_since}');
+						var log = '${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - Recording since ${streamer.recording_since}';
+						if (streamer.chat_only) log += ' (chat only)';
+						Sys.println(log);
 					} else {
 						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET}');
 					}
@@ -296,6 +309,7 @@ class Main {
 					streamer_username: "",
 					streamer_display_name: "",
 					online: false,
+					was_online: false,
 					chat_only: isChatOnly,
 					recording_since: "",
 					filename: "",

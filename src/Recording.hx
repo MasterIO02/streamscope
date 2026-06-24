@@ -15,7 +15,7 @@ using StringTools;
 
 var streamlinkProcesses:Map<String, Process> = new Map();
 
-function runStreamlink(streamerInfo:StreamerStatus) {
+function startRecording(streamerInfo:StreamerStatus) {
 	Sys.println('\nStarting record of ${streamerInfo.streamer_username}');
 
 	var streamStartDate = streamerInfo.started_at.split("T")[0];
@@ -23,13 +23,6 @@ function runStreamlink(streamerInfo:StreamerStatus) {
 	var streamStartHours = streamStartTime[0];
 	var streamStartMinutes = streamStartTime[1];
 	var streamStartSeconds = streamStartTime[2];
-
-	// This commented code is to get the record starting date in the local time. we will use the UTC time instead
-	/*var recordStartDate = Date.now().toString().split(" ")[0]; // in local time!
-		var recordStartTime = Date.now().toString().split(" ")[1].split(":");
-		var recordStartHours = recordStartTime[0];
-		var recordStartMinutes = recordStartTime[1];
-		var recordStartSeconds = recordStartTime[2]; */
 
 	var now = Date.now();
 	var recordStartDate = '${now.getFullYear()}-${toTwoDigits(now.getUTCMonth() + 1)}-${toTwoDigits(now.getUTCDate())}';
@@ -43,34 +36,15 @@ function runStreamlink(streamerInfo:StreamerStatus) {
 		FileSystem.createDirectory(path);
 	}
 
-	// spawns a thread for the streamlink (and chat downloader) process and sends the required informations to start recording
-	var chatDownloaderThread:Thread = Thread.current();
-	if (config.download_chat == true) chatDownloaderThread = Thread.create(runChatDownloader.bind(streamerInfo.streamer_username, filename));
+	var recordStartFullDate = '${recordStartDate}T${recordStartHours}:${recordStartMinutes}:${recordStartSeconds}Z';
 
-	Thread.create(streamlinkProcess.bind(streamerInfo, filename, path, '${recordStartDate}T${recordStartHours}:${recordStartMinutes}:${recordStartSeconds}Z',
-		chatDownloaderThread));
-
-	return filename;
-}
-
-// streamlink thread function
-function streamlinkProcess(streamerInfo:StreamerStatus, filename:String, path:String, recordStartFullDate:String, chatDownloaderThread:Thread) {
 	var recordingInfo = {
 		streamer_username: streamerInfo.streamer_username,
 		streamer_display_username: streamerInfo.streamer_display_name,
-		// initiating the first title of the stream
 		titles: [{date: recordStartFullDate, title: streamerInfo.title}],
 		stream_started_at: streamerInfo.started_at,
-		/*record_started_at: Date.now()
-			.toString()
-			.split(" ")
-			.join("T") + "Z", 
-			This is an incorrect date, because it's in local time. keeping this in case we want to make a switch to use local time instead of UTC
-		 */
 		record_started_at: recordStartFullDate,
-		// initiating the first game_id of the stream
 		game_ids: [{date: recordStartFullDate, game_id: streamerInfo.game_id}],
-		// initiating the first game_name of the stream
 		game_names: [{date: recordStartFullDate, game_id: streamerInfo.game_name}],
 		language: streamerInfo.language,
 		tag_ids: streamerInfo.tag_ids,
@@ -81,6 +55,20 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String, path:St
 	recordingInfoFile.writeString(Json.stringify(recordingInfo), UTF8);
 	recordingInfoFile.close();
 
+	if (config.download_chat == true) {
+		streamerInfo.chat_thread = Thread.create(runChatDownloader.bind(streamerInfo.streamer_username, filename));
+	}
+
+	if (!streamerInfo.chat_only) {
+		// normal mode: also start the streamlink video recording process
+		Thread.create(streamlinkProcess.bind(streamerInfo, filename));
+	}
+
+	return filename;
+}
+
+// streamlink thread function
+function streamlinkProcess(streamerInfo:StreamerStatus, filename:String) {
 	final streamlinkCommand = 'streamlink --twitch-disable-hosting --twitch-disable-ads --twitch-disable-reruns twitch.tv/${streamerInfo.streamer_username} ${config.quality} -o "${config.temp_path}/$filename.${config.video_container}"';
 	final streamlink = new Process(streamlinkCommand);
 	streamlinkProcesses.set(streamerInfo.streamer_username, streamlink);
@@ -105,10 +93,6 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String, path:St
 	streamlinkProcesses.remove(streamerInfo.streamer_username);
 	streamlink.close();
 
-	if (config.download_chat == true) {
-		if (config.debug) trace("[DEBUG] Closing chat downloader, stream ended");
-		chatDownloaderThread.sendMessage("end");
-	}
 	processRecording('$filename.${config.video_container}');
 }
 

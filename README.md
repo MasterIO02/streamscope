@@ -25,6 +25,19 @@ streamscope cannot run on Windows as it depends on built-in Linux commands.
 4. Run streamscope with the path of your text file containing the streamers to monitor as an argument
 5. You're good to go!
 
+## Streamer list modifiers
+Modifiers can be prepended to streamer usernames in the list file to change how they are recorded.
+
+- `chat:` — Record chat only, without video. Example: `chat:shroud`
+
+```
+// normal recording (video + chat)
+osulive
+
+// chat-only recording
+chat:mrekkosu
+```
+
 ## Configuration file
 - `debug`: Print debug logs when performing various tasks
 - `twitch_id`: Your Twitch client ID
