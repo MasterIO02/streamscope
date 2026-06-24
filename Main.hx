@@ -235,6 +235,10 @@ class Main {
 		}
 	}
 
+	/**
+	 * Get a Twitch OAuth access token
+	 * @return "ERROR" or the access token itself
+	 */
 	static public function getAccessToken():String {
 		var maxRetries = 5;
 		for (attempt in 0...maxRetries) {
@@ -255,6 +259,12 @@ class Main {
 		return "ERROR";
 	}
 
+	/**
+	 * Check if the input streamers list are online on Twitch
+	 * @param streamers the array of streamers to check for
+	 * @param credentials Twitch access token
+	 * @return Array of online streamers with the data twitch sends us
+	 */
 	static public function checkStreamersOnline(streamers:Array<String>, credentials:String):Array<OnlineStreamer> {
 		var streamersQuery = "";
 		for (streamer in streamers) {
@@ -316,9 +326,11 @@ class Main {
 		return result;
 	}
 
+	/**
+	 * Checks if the streamers list file changed (to call when starting the app and for each loop iteration) 
+	 * @param listPath path of the list to check for
+	 */
 	static public function refreshStreamers(listPath) {
-		// refreshStreamers is called when starting the app and for each loop iteration, to check if a new streamer is supplied to the list in real time
-
 		var newWatchedStreamers:Array<String> = [];
 		var lines = File.getContent(listPath).split("\n");
 

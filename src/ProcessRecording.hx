@@ -21,6 +21,10 @@ function checkLeftovers() {
 	}
 }
 
+/**
+ * Run ffmpeg on a recording to fix issues with it (no re-encoding)
+ * @param filename filename of the input video
+ */
 function processRecording(filename:String) {
 	var streamer = filename.split(" ")[0];
 	Sys.println('Processing recording "$filename"...');

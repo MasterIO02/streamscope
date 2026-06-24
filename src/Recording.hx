@@ -67,7 +67,10 @@ function startRecording(streamerInfo:StreamerStatus) {
 	return filename;
 }
 
-// streamlink thread function
+/**
+ * Run a streamlink thread
+ * @param filename filename of the output video
+ */
 function streamlinkProcess(streamerInfo:StreamerStatus, filename:String) {
 	final streamlinkCommand = 'streamlink --twitch-disable-hosting --twitch-disable-ads --twitch-disable-reruns twitch.tv/${streamerInfo.streamer_username} ${config.quality} -o "${config.temp_path}/$filename.${config.video_container}"';
 	final streamlink = new Process(streamlinkCommand);
@@ -102,6 +105,13 @@ function streamlinkProcess(streamerInfo:StreamerStatus, filename:String) {
 	processRecording('$filename.${config.video_container}');
 }
 
+/**
+ * Update the JSON file arrays containing stream info
+ * @param itemType what to update?
+ * @param newItem what to push in the field to update?
+ * @param filename name of the file to update
+ * @param path path where the json files are located
+ */
 function updateStreamInfo(itemType:String, newItem:String, filename:String, path:String) {
 	var now = Date.now();
 	var currentDate = '${now.getFullYear()}-${toTwoDigits(now.getUTCMonth() + 1)}-${toTwoDigits(now.getUTCDate())}T${toTwoDigits(now.getUTCHours())}:${toTwoDigits(now.getUTCMinutes())}:${toTwoDigits(now.getUTCSeconds())}Z';

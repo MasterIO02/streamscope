@@ -74,6 +74,12 @@ function runChatDownloader(channel:String, filename:String) {
 	}
 }
 
+/**
+ * Parse and write an incoming twitch message to a chat file
+ * @param message complete message string as supplied by Twitch (with meta to parse)
+ * @param channel name of the Twitch channel (used to directly append the message to the chat file in the "processed" folder)
+ * @param filename filename of the chat file
+ */
 function processMessage(message:String, channel:String, filename:String) {
 	if (!config.custom_chat) {
 		// we remove the CRLF delimitation because writeToChat breaks the lines itself
