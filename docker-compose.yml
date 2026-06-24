@@ -1,0 +1,8 @@
+services:
+  streamscope:
+    build: .
+    container_name: streamscope
+    restart: unless-stopped
+    volumes:
+      - ./files:/home/streamscope
+      - ./recordings:/home/videos

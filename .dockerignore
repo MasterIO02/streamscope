@@ -1,0 +1,8 @@
+appbuild/
+files/
+recordings/
+.dub/
+*.o
+*.exe
+*.dSYM
+.git/

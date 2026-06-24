@@ -25,6 +25,35 @@ streamscope cannot run on Windows as it depends on built-in Linux commands.
 4. Run streamscope with the path of your text file containing the streamers to monitor as an argument
 5. You're good to go!
 
+## Docker
+streamscope can be run in a Docker container. The image that will be built includes streamlink and ffmpeg, so no host dependencies are needed.
+
+Build the image:
+```sh
+docker build -t streamscope .
+```
+
+Run the container:
+```sh
+docker run -d \
+  --name streamscope \
+  --restart unless-stopped \
+  -v ./files:/home/streamscope \
+  -v ./recordings:/home/videos \
+  streamscope
+```
+
+Or with Docker Compose:
+```sh
+docker compose up -d
+```
+
+Where:
+- `./files` — directory containing your `list.txt` and `config.json`
+- `./recordings` — directory where recordings will be stored (set `temp_path` and `processed_path` in your `config.json` to use this mount, e.g. `/home/videos/temp` and `/home/videos/processed`)
+
+If your `twitch_id` and `twitch_secret` are stored in `config.json`, no extra flags are needed.
+
 ## Streamer list modifiers
 Modifiers can be prepended to streamer usernames in the list file to change how they are recorded.
 
@@ -80,3 +109,5 @@ You need Haxe 4.3.0 minimum (and haxelib) to build the project.
 The compiler target for streamscope is C++. Install hxcpp with haxelib.
 
 Download the libraries listed in the compile.hxml file using haxelib (`haxelib install [dependency name]`), and run `haxe compile.hxml`, or the `run.sh` file to directly run streamscope.
+
+Alternatively, build the Docker image (see Docker section above) which handles all build dependencies automatically.
