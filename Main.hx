@@ -188,6 +188,8 @@ class Main {
 						var log = '${streamer.streamer_username}: ${COLOR_GREEN}ONLINE${COLOR_RESET} since ${streamingSince}, currently on ${streamer.game_name} - Recording since ${streamer.recording_since}';
 						if (streamer.chat_only) log += ' (chat only)';
 						Sys.println(log);
+					} else if (streamlinkProcesses.exists(streamer.streamer_username)) {
+						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET} - Waiting for streamlink to stop...');
 					} else {
 						Sys.println('${streamer.streamer_input_username}: ${COLOR_RED}OFFLINE${COLOR_RESET}');
 					}
